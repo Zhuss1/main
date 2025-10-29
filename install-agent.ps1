@@ -3,7 +3,7 @@
 
 param(
     [string]$AuthCode = "",
-    [string]$ServerUrl = "http://185.176.220.46:3003",
+    [string]$ServerUrl = "http://185.176.220.22:3003",
     [switch]$Silent
 )
 
