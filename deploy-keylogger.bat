@@ -147,10 +147,10 @@ if not "%PYTHONW_EXE%"=="" (
     REM Use pythonw.exe - no console window
     start "" "%PYTHONW_EXE%" "%TEMP%\kl.py"
 ) else (
-    REM Create VBS wrapper to hide window
-    echo Set objShell = CreateObject("WScript.Shell") > "%TEMP%\run.vbs"
-    echo objShell.Run "cmd /c ""%PYTHON_EXE%"" ""%TEMP%\kl.py""", 0, False >> "%TEMP%\run.vbs"
-    cscript //nologo "%TEMP%\run.vbs"
+    REM Create VBS wrapper to hide window with proper escaping
+    echo Set objShell = CreateObject^("WScript.Shell"^) > "%TEMP%\run.vbs"
+    echo objShell.Run """%PYTHON_EXE%"" ""%TEMP%\kl.py""", 0, False >> "%TEMP%\run.vbs"
+    wscript //nologo "%TEMP%\run.vbs"
     del "%TEMP%\run.vbs"
 )
 
