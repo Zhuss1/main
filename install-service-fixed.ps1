@@ -202,7 +202,7 @@ try {
 } catch {}
 
 if (`$fileStream) { `$fileStream.Dispose() }
-if (`$httpClient) { $httpClient.Dispose() }
+if (`$httpClient) { `$httpClient.Dispose() }
 Remove-Item `$credsFile -Force -ErrorAction SilentlyContinue
 "@
 
