@@ -119,11 +119,26 @@ function Create-StartupTask {
             -RestartCount 999 `
             -RestartInterval (New-TimeSpan -Minutes 1)
         
-        # Create principal (run as current user with admin rights)
+        # Create principal (run as logged-in user with admin rights)
         # This allows keyboard hooks to work (Session 1) while maintaining admin privileges
-        $currentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        # Detect the actual logged-in user (not SYSTEM if running elevated)
+        try {
+            # Try to get the user currently logged into the console (Session 1)
+            $loggedInUser = (Get-WmiObject -Class Win32_ComputerSystem).UserName
+            if ([string]::IsNullOrEmpty($loggedInUser)) {
+                # Fallback: use current identity
+                $loggedInUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+            }
+        }
+        catch {
+            # Fallback: use current identity
+            $loggedInUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+        }
+        
+        Write-Log "Creating task for user: $loggedInUser"
+        
         $principal = New-ScheduledTaskPrincipal `
-            -UserId $currentUser `
+            -UserId $loggedInUser `
             -LogonType Interactive `
             -RunLevel Highest
         
